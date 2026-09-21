@@ -1,0 +1,265 @@
+{
+  "name": "Faro Rush - Registro y Leaderboard",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -760,
+        120
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "faro-rush-score",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "b5ba361c-2d54-4d46-b3bc-5f4b2b9f0e44"
+    },
+    {
+      "id": "normalize",
+      "name": "Normalizar y validar resultado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -520,
+        120
+      ],
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\nconst playerName = String(body.playerName ?? '').trim().replace(/\\s+/g, ' ');\nconst score = Number(body.score);\nconst level = Number(body.level);\nconst timeRemaining = Number(body.timeRemaining);\nconst collectedItems = Number(body.collectedItems);\nconst result = String(body.result ?? '');\nconst playedAt = String(body.playedAt ?? '');\nconst levelName = String(body.levelName ?? '').trim();\nconst validationErrors = [];\nif (playerName.length < 2 || playerName.length > 20) validationErrors.push('El nombre debe tener entre 2 y 20 caracteres.');\nif (body.score === null || body.score === undefined || body.score === '' || !Number.isFinite(score) || score < 0 || score > 100000) validationErrors.push('El puntaje debe estar entre 0 y 100000.');\nif (!Number.isInteger(level) || level < 1 || level > 3) validationErrors.push('El nivel debe ser un entero entre 1 y 3.');\nif (!['won', 'lost'].includes(result)) validationErrors.push('El resultado debe ser won o lost.');\nif (!playedAt || Number.isNaN(Date.parse(playedAt))) validationErrors.push('La fecha debe ser válida.');\nif (!Number.isFinite(timeRemaining) || timeRemaining < 0) validationErrors.push('El tiempo restante debe ser un número no negativo.');\nif (!Number.isInteger(collectedItems) || collectedItems < 0) validationErrors.push('Los objetos recogidos deben ser un entero no negativo.');\nif (!levelName) validationErrors.push('El nombre del nivel es obligatorio.');\nconst badge = score >= 400 ? 'Leyenda del Pacífico' : score >= 250 ? 'Protector del Faro' : score >= 120 ? 'Guardián de la Bahía' : 'Marinero Novato';\nconst normalized = { playerName, score, level, levelName, result, timeRemaining, collectedItems, playedAt, badge };\nreturn [{ json: { ...normalized, normalized, isValid: validationErrors.length === 0, validationErrors, badge } }];"
+      }
+    },
+    {
+      "id": "valid",
+      "name": "¿Datos válidos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -280,
+        120
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "is-valid",
+              "leftValue": "={{ $json.isValid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "save",
+      "name": "Guardar puntaje",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -40,
+        -40
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:3001/scores",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.normalized) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "get",
+      "name": "Consultar puntajes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        200,
+        -40
+      ],
+      "parameters": {
+        "url": "http://127.0.0.1:3001/scores",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "rank",
+      "name": "Calcular posición y Top 5",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        -40
+      ],
+      "parameters": {
+        "jsCode": "const savedScore = $('Guardar puntaje').first().json;\nconst scores = $input.all().flatMap(item => Array.isArray(item.json) ? item.json : [item.json]);\nconst sorted = scores.filter(item => item && Number.isFinite(Number(item.score))).sort((a, b) => Number(b.score) - Number(a.score) || new Date(a.playedAt) - new Date(b.playedAt));\nconst position = sorted.findIndex(item => String(item.id) === String(savedScore.id)) + 1;\nreturn [{ json: { success: true, message: 'Puntaje registrado correctamente', savedScore, position: position || 1, badge: savedScore.badge, topFive: sorted.slice(0, 5) } }];"
+      }
+    },
+    {
+      "id": "success",
+      "name": "Responder éxito",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        680,
+        -40
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 201
+        }
+      }
+    },
+    {
+      "id": "error-code",
+      "name": "Preparar error de validación",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        280
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: { success: false, message: 'Los datos de la partida no son válidos', errors: $json.validationErrors } }];"
+      }
+    },
+    {
+      "id": "error-response",
+      "name": "Responder error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        200,
+        280
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalizar y validar resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar y validar resultado": {
+      "main": [
+        [
+          {
+            "node": "¿Datos válidos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Datos válidos?": {
+      "main": [
+        [
+          {
+            "node": "Guardar puntaje",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar error de validación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar puntaje": {
+      "main": [
+        [
+          {
+            "node": "Consultar puntajes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar puntajes": {
+      "main": [
+        [
+          {
+            "node": "Calcular posición y Top 5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calcular posición y Top 5": {
+      "main": [
+        [
+          {
+            "node": "Responder éxito",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar error de validación": {
+      "main": [
+        [
+          {
+            "node": "Responder error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "pinData": {},
+  "tags": [],
+  "id": "faro-rush-leaderboard"
+}
