@@ -1,0 +1,14 @@
+{
+  "levels": [
+    { "id": 1, "name": "Bahía Serena", "duration": 45, "goal": 120, "fallSpeed": 150, "spawnInterval": 1150, "obstacleChance": 0.24, "stormChance": 0.12, "description": "La primera guardia comienza con aguas tranquilas." },
+    { "id": 2, "name": "Marea Activa", "duration": 50, "goal": 220, "fallSpeed": 210, "spawnInterval": 850, "obstacleChance": 0.32, "stormChance": 0.22, "description": "La marea trae más fauna y nuevos peligros." },
+    { "id": 3, "name": "Tormenta del Pacífico", "duration": 60, "goal": 350, "fallSpeed": 275, "spawnInterval": 650, "obstacleChance": 0.4, "stormChance": 0.44, "description": "Protege la costa en la noche más difícil." }
+  ],
+  "scores": [
+    { "id": "seed-1", "playerName": "Mar Azul", "score": 410, "level": 3, "levelName": "Tormenta del Pacífico", "result": "won", "timeRemaining": 9, "collectedItems": 21, "playedAt": "2026-09-15T19:30:00.000Z", "badge": "Leyenda del Pacífico" },
+    { "id": "seed-2", "playerName": "Luna", "score": 285, "level": 2, "levelName": "Marea Activa", "result": "won", "timeRemaining": 7, "collectedItems": 15, "playedAt": "2026-09-16T22:10:00.000Z", "badge": "Protector del Faro" },
+    { "id": "seed-3", "playerName": "Tico Surf", "score": 230, "level": 2, "levelName": "Marea Activa", "result": "won", "timeRemaining": 3, "collectedItems": 13, "playedAt": "2026-09-17T16:20:00.000Z", "badge": "Guardián de la Bahía" },
+    { "id": "seed-4", "playerName": "Coral", "score": 145, "level": 1, "levelName": "Bahía Serena", "result": "won", "timeRemaining": 12, "collectedItems": 8, "playedAt": "2026-09-18T14:00:00.000Z", "badge": "Guardián de la Bahía" },
+    { "id": "seed-5", "playerName": "Faro 27", "score": 80, "level": 1, "levelName": "Bahía Serena", "result": "lost", "timeRemaining": 0, "collectedItems": 5, "playedAt": "2026-09-19T20:45:00.000Z", "badge": "Marinero Novato" }
+  ]
+}
