@@ -9,9 +9,21 @@
 
 El nodo HTTP usa `http://127.0.0.1:3001/scores`. Si n8n se ejecuta en Docker, `127.0.0.1` apunta al contenedor; cambia ambos nodos HTTP por la dirección de tu host accesible desde el contenedor.
 
+## Qué URL usa cada parte
+
+| Dirección | Función |
+|---|---|
+| `http://localhost:5678/webhook/faro-rush-score` | Entrada de **producción** a n8n. El juego envía aquí el resultado acumulado al terminar la quinta misión. |
+| `http://localhost:5678/webhook-test/faro-rush-score` | Entrada de **prueba**; solo existe mientras n8n muestra **Listen for test event** o **Execute workflow**. |
+| `http://localhost:3001/scores` | Recurso de `json-server` basado en la clave `scores` de `db.json`. n8n guarda y consulta los puntajes aquí. |
+
+`faro-rush-score` es el **path del Webhook** en n8n; no tiene que ser una clave de `db.json`. La clave del archivo es `scores`, en plural. Los nombres pueden ser diferentes porque el Webhook recibe la solicitud y los nodos HTTP de n8n la envían después a `/scores`.
+
+Para jugar normalmente, deja el workflow **Published** y no pulses **Execute workflow**. El juego usa la URL de producción; esa ejecución aparece en la pestaña **Executions** de n8n, no se dibuja en el editor en tiempo real. El juego no necesita enviar cada clic: al completar las cinco metas envía una única solicitud con `missionScores` (cinco valores) y `score` (su suma). Una misión perdida no se registra. [Documentación oficial del Webhook](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.webhook/).
+
 ## Prueba y activación
 
-1. Con json-server activo, pulsa **Listen for test event** en el nodo Webhook (o **Test workflow**).
+1. Para una prueba manual, con json-server activo pulsa **Listen for test event** en el nodo Webhook (o **Execute workflow**).
 2. Envía el payload de cinco misiones de abajo a `http://localhost:5678/webhook-test/faro-rush-score`.
 3. Comprueba la ejecución: validación → POST a json-server → GET de puntajes → posición y Top 5 → respuesta 201.
 4. Publica el workflow para habilitar `http://localhost:5678/webhook/faro-rush-score`. El frontend usa esta URL mediante el proxy de Vite (`/n8n/webhook/faro-rush-score`).
