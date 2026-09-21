@@ -11,11 +11,13 @@ export default function useGameEngine(level) {
   const boardRef = useRef(null)
   const nextItemId = useRef(0)
   const keysRef = useRef({ left: false, right: false })
+  const remainingAtStart = useRef(level.duration)
   const [game, setGame] = useState(() => initialGame(level))
 
   const boardWidth = useCallback(() => boardRef.current?.clientWidth || 700, [])
   const start = useCallback(() => {
     keysRef.current = { left: false, right: false }
+    remainingAtStart.current = level.duration
     setGame({ ...initialGame(level), boatX: Math.max(0, (boardWidth() - BOAT_WIDTH) / 2), status: 'playing' })
   }, [level, boardWidth])
   const pause = useCallback(() => setGame((current) => current.status === 'playing' ? { ...current, status: 'paused' } : current), [])
@@ -53,8 +55,13 @@ export default function useGameEngine(level) {
 
   useEffect(() => {
     if (game.status !== 'playing') return undefined
-    const timer = window.setInterval(() => setGame((current) => current.status === 'playing'
-      ? { ...current, timeRemaining: Math.max(0, current.timeRemaining - 1) } : current), 1000)
+    const deadline = Date.now() + remainingAtStart.current * 1000
+    const timer = window.setInterval(() => setGame((current) => {
+      if (current.status !== 'playing') return current
+      const timeRemaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
+      remainingAtStart.current = timeRemaining
+      return timeRemaining === current.timeRemaining ? current : { ...current, timeRemaining }
+    }), 200)
     return () => window.clearInterval(timer)
   }, [game.status])
 
@@ -71,20 +78,24 @@ export default function useGameEngine(level) {
   useEffect(() => {
     if (game.status !== 'playing') return undefined
     const tickMs = 32
+    let lastTick = performance.now()
     const tick = window.setInterval(() => {
+      const now = performance.now()
+      const elapsed = Math.min((now - lastTick) / 1000, 0.25)
+      lastTick = now
       const width = boardWidth()
       const height = boardRef.current?.clientHeight || 440
       setGame((current) => {
         if (current.status !== 'playing') return current
         const direction = Number(keysRef.current.right) - Number(keysRef.current.left)
-        const boatX = Math.max(0, Math.min(width - BOAT_WIDTH, current.boatX + direction * 7))
+        const boatX = Math.max(0, Math.min(width - BOAT_WIDTH, current.boatX + direction * 220 * elapsed))
         let score = current.score
         let lives = current.lives
         let collectedItems = current.collectedItems
         const items = []
         for (const item of current.items) {
-          const moved = { ...item, y: item.y + level.fallSpeed * tickMs / 1000 }
-          const collision = moved.y + ITEM_SIZE >= height - 70 && moved.y <= height - 20
+          const moved = { ...item, y: item.y + level.fallSpeed * elapsed }
+          const collision = item.y <= height - 20 && moved.y + ITEM_SIZE >= height - 70
             && moved.x + ITEM_SIZE > boatX + 7 && moved.x < boatX + BOAT_WIDTH - 7
           if (collision) {
             const next = applyItem(item.type, score, lives, MAX_LIVES)

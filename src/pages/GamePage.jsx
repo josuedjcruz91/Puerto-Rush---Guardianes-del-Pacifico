@@ -1,71 +1,97 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import GameBoard from '../components/game/GameBoard'
-import ScoreBoard from '../components/game/ScoreBoard'
-import TouchControls from '../components/game/TouchControls'
-import GameControls from '../components/game/GameControls'
-import GameOverModal from '../components/game/GameOverModal'
-import Loader from '../components/common/Loader'
 import ErrorMessage from '../components/common/ErrorMessage'
+import Loader from '../components/common/Loader'
+import GameOverModal from '../components/game/GameOverModal'
+import MissionGame from '../components/game/MissionGame'
 import { usePlayer } from '../context/PlayerContext'
-import useGameEngine from '../hooks/useGameEngine'
-import { getLevels } from '../services/levelService'
-import { submitScore } from '../services/scoreService'
 import { readableError } from '../services/api'
+import { getLevels } from '../services/levelService'
+import { scoreSubmissionError, submitScore } from '../services/scoreService'
 import { validateAlias } from '../utils/validators'
 
-function ActiveGame({ level, playerName }) {
-  const engine = useGameEngine(level)
+function CampaignGame({ levels, playerName }) {
+  const [missionIndex, setMissionIndex] = useState(0)
+  const [completedScores, setCompletedScores] = useState([])
+  const [outcome, setOutcome] = useState(null)
+  const [attempt, setAttempt] = useState(0)
   const [submission, setSubmission] = useState({ status: 'idle', data: null, error: '' })
-  const submitted = useRef(false)
   const payloadRef = useRef(null)
-  const { score, lives, timeRemaining, collectedItems, status } = engine
+  const submissionRun = useRef(0)
+  const level = levels[missionIndex]
 
   const send = useCallback(async (payload) => {
+    const run = ++submissionRun.current
     setSubmission({ status: 'sending', data: null, error: '' })
     try {
       const data = await submitScore(payload)
-      setSubmission({ status: 'success', data, error: '' })
+      if (run === submissionRun.current) setSubmission({ status: 'success', data, error: '' })
     } catch (error) {
-      setSubmission({ status: 'error', data: null, error: readableError(error, 'No se pudo enviar el puntaje a n8n.') })
+      if (run === submissionRun.current) setSubmission({ status: 'error', data: null, error: scoreSubmissionError(error) })
     }
   }, [])
 
-  useEffect(() => {
-    if ((status !== 'won' && status !== 'lost') || submitted.current) return
-    submitted.current = true
-    payloadRef.current = { playerName, score, level: level.id, levelName: level.name, result: status, timeRemaining, collectedItems, playedAt: new Date().toISOString() }
+  const finishMission = useCallback((result) => {
+    if (result.result === 'lost') {
+      setOutcome({ kind: 'lost', mission: result })
+      return
+    }
+    const nextScores = [...completedScores, result]
+    setCompletedScores(nextScores)
+    if (nextScores.length < levels.length) {
+      setOutcome({ kind: 'missionWon', mission: result })
+      return
+    }
+    setOutcome({ kind: 'campaignWon', mission: result })
+    payloadRef.current = {
+      playerName,
+      score: nextScores.reduce((sum, mission) => sum + mission.score, 0),
+      level: Number(level.id),
+      levelName: level.name,
+      result: 'won',
+      timeRemaining: result.timeRemaining,
+      collectedItems: nextScores.reduce((sum, mission) => sum + mission.collectedItems, 0),
+      missionScores: nextScores.map((mission) => mission.score),
+      playedAt: new Date().toISOString(),
+    }
     send(payloadRef.current)
-  }, [status, playerName, score, level, timeRemaining, collectedItems, send])
+  }, [completedScores, levels.length, level, playerName, send])
 
-  function restart() {
-    submitted.current = false
+  function restartCampaign() {
+    submissionRun.current += 1
     payloadRef.current = null
     setSubmission({ status: 'idle', data: null, error: '' })
-    engine.start()
+    setCompletedScores([])
+    setMissionIndex(0)
+    setOutcome(null)
+    setAttempt((value) => value + 1)
   }
 
-  return <section className="section container game-page"><div className="game-heading"><div><span className="eyebrow">MISIÓN 0{level.id} · {level.name.toUpperCase()}</span><h1>Protege la bahía</h1></div><Link to="/" className="back-link">← Cambiar nivel</Link></div>
-    <div className="game-shell"><ScoreBoard score={score} time={timeRemaining} level={level.id} goal={level.goal} lives={lives} /><GameBoard boardRef={engine.boardRef} boatX={engine.boatX} items={engine.items} status={status} /><TouchControls onMoveLeft={() => engine.move(-1)} onMoveRight={() => engine.move(1)} disabled={status !== 'playing'} /><GameControls status={status} onStart={engine.start} onPause={engine.pause} onResume={engine.resume} onRestart={restart} /></div><p className="game-tip">TECLADO: ← → O A D · RECOGE LA VIDA MARINA · EVITA LOS PELIGROS</p>
-    {(status === 'won' || status === 'lost') && <GameOverModal result={status} score={score} level={level} submission={submission} onRetry={() => send(payloadRef.current)} onPlayAgain={restart} />}
-  </section>
+  return <>
+    <MissionGame key={`${level.id}-${attempt}`} level={level} totalLevels={levels.length} completedScores={completedScores} onFinish={finishMission} onRestart={() => { setOutcome(null); setAttempt((value) => value + 1) }} />
+    {outcome && <GameOverModal outcome={outcome} completedScores={completedScores} totalLevels={levels.length} submission={submission} onRetrySend={() => payloadRef.current && send(payloadRef.current)} onNext={() => { setMissionIndex((value) => value + 1); setOutcome(null) }} onRetryMission={() => { setOutcome(null); setAttempt((value) => value + 1) }} onRestartCampaign={restartCampaign} />}
+  </>
 }
 
 export default function GamePage() {
   const { nivel } = useParams()
   const { playerName } = usePlayer()
-  const [currentLevel, setCurrentLevel] = useState(null)
+  const [levels, setLevels] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [reload, setReload] = useState(0)
+
   useEffect(() => {
     let active = true
-    getLevels().then((data) => { if (active) setCurrentLevel(data.find((entry) => String(entry.id) === nivel) || null) }).catch((err) => { if (active) setError(readableError(err, 'No se pudo cargar el nivel.')) }).finally(() => { if (active) setLoading(false) })
+    getLevels().then((data) => { if (active) setLevels([...data].sort((a, b) => Number(a.id) - Number(b.id))) }).catch((err) => { if (active) setError(readableError(err, 'No se pudieron cargar las misiones.')) }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [reload, nivel])
-  if (loading) return <section className="section container"><Loader text="Cargando nivel..." /></section>
+  }, [reload])
+
+  if (loading) return <section className="section container"><Loader text="Cargando campaña..." /></section>
   if (error) return <section className="section container"><ErrorMessage message={error} onRetry={() => { setError(''); setLoading(true); setReload((value) => value + 1) }} /><Link to="/">Volver al inicio</Link></section>
-  if (!currentLevel) return <section className="section container page-section"><h1>Nivel no encontrado</h1><p>Esta misión no existe.</p><Link className="button button-primary" to="/">Volver al inicio</Link></section>
+  if (!levels.some((level) => String(level.id) === nivel)) return <section className="section container page-section"><h1>Nivel no encontrado</h1><p>Esta misión no existe.</p><Link className="button button-primary" to="/">Volver al inicio</Link></section>
+  if (nivel !== '1') return <section className="section container page-section"><h1>Comienza por la misión 1</h1><p>Las misiones se desbloquean en orden. Así se conserva el puntaje acumulado hasta el podio.</p><Link className="button button-primary" to="/">Ir al inicio</Link></section>
+  if (levels.length !== 5 || levels.some((level, index) => Number(level.id) !== index + 1)) return <section className="section container page-section"><ErrorMessage message="La campaña necesita las cinco misiones numeradas del 1 al 5 en db.json." /></section>
   if (validateAlias(playerName)) return <section className="section container page-section"><h1>Antes de navegar</h1><p>Escribe un alias válido en el inicio para jugar.</p><Link className="button button-primary" to="/">Ir al inicio</Link></section>
-  return <ActiveGame key={currentLevel.id} level={currentLevel} playerName={playerName} />
+  return <CampaignGame levels={levels} playerName={playerName} />
 }

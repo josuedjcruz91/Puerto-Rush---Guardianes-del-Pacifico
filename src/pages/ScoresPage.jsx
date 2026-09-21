@@ -16,7 +16,7 @@ export default function ScoresPage() {
     getScores().then((data) => { if (active) setScores(data) }).catch((err) => { if (active) setError(readableError(err, 'No se pudieron cargar los puntajes.')) }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [reload])
-  return <section className="section container page-section"><div className="section-heading"><div><span className="eyebrow">LEYENDAS DEL PACÍFICO</span><h1>Clasificación</h1><p>Los guardianes que dejaron huella frente al faro.</p></div><span className="section-index">TOP GUARDIANES</span></div>
+  return <section className="section container page-section"><div className="section-heading"><div><span className="eyebrow">LEYENDAS DEL PACÍFICO</span><h1>Clasificación</h1><p>El podio se ordena por la suma de puntos de las cinco misiones completadas.</p></div><span className="section-index">TOP GUARDIANES</span></div>
     {loading ? <Loader text="Cargando clasificación..." /> : error ? <ErrorMessage message={error} onRetry={() => { setError(''); setLoading(true); setReload((value) => value + 1) }} /> : scores.length === 0 ? <EmptyState message="Aún no hay puntajes registrados. Sé el primero en jugar." /> : <LeaderboardTable scores={scores} />}
   </section>
 }
