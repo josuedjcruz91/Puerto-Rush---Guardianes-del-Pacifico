@@ -151,6 +151,63 @@
         420,
         500
       ]
+    },
+    {
+      "playerName": "dj cruz",
+      "score": 1630,
+      "level": 5,
+      "levelName": "Última Luz del Faro",
+      "result": "won",
+      "timeRemaining": 11,
+      "collectedItems": 110,
+      "missionScores": [
+        120,
+        220,
+        350,
+        440,
+        500
+      ],
+      "playedAt": "2026-09-21T17:22:05.112Z",
+      "badge": "Leyenda del Pacífico",
+      "id": "UeYWUKOYzgQ"
+    },
+    {
+      "playerName": "Steven",
+      "score": 1650,
+      "level": 5,
+      "levelName": "Última Luz del Faro",
+      "result": "won",
+      "timeRemaining": 23,
+      "collectedItems": 108,
+      "missionScores": [
+        130,
+        220,
+        360,
+        430,
+        510
+      ],
+      "playedAt": "2026-09-21T17:31:40.908Z",
+      "badge": "Leyenda del Pacífico",
+      "id": "PFe127vuP9c"
+    },
+    {
+      "playerName": "Steven",
+      "score": 1630,
+      "level": 5,
+      "levelName": "Última Luz del Faro",
+      "result": "won",
+      "timeRemaining": 26,
+      "collectedItems": 91,
+      "missionScores": [
+        140,
+        220,
+        350,
+        420,
+        500
+      ],
+      "playedAt": "2026-09-21T20:08:41.432Z",
+      "badge": "Leyenda del Pacífico",
+      "id": "1WO_xu27GrY"
     }
   ],
   "$schema": "./node_modules/json-server/schema.json"
